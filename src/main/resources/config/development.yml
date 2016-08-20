@@ -1,0 +1,8 @@
+app:
+  apiUrl: http://www.gongmingqm10.net
+  featureToggles:
+    ENABLE_HOME_PAGE: true
+
+jerseyClient:
+  connectionTimeout: 5000ms
+  timeout: 5000ms

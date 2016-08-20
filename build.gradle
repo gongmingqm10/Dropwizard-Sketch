@@ -1,0 +1,124 @@
+import org.yaml.snakeyaml.Yaml
+
+apply plugin: 'java'
+apply plugin: 'com.github.johnrengelman.shadow'
+apply plugin: 'maven'
+apply plugin: 'application'
+apply plugin: 'idea'
+apply plugin: 'com.moowork.gulp'
+apply plugin: 'com.moowork.node'
+
+group = 'net.gongmingqm10'
+def buildNumber = System.getenv("VERSION")
+version = buildNumber != "" && buildNumber != null ? buildNumber : "1.0-SNAPSHOT"
+
+
+sourceCompatibility = 1.8
+targetCompatibility = 1.8
+
+description = """DropWizard Sketch Sample"""
+[compileJava, compileTestJava]*.options*.encoding = 'UTF-8'
+
+mainClassName = 'net.gongmingqm10.sketch.DropWizardSketchApplication'
+
+buildscript {
+    repositories {
+        mavenCentral()
+        maven { url "https://plugins.gradle.org/m2/" }
+    }
+
+    dependencies {
+        classpath 'com.github.jengelman.gradle.plugins:shadow:1.2.3'
+        classpath 'org.yaml:snakeyaml:1.16'
+        classpath 'com.moowork.gradle:gradle-gulp-plugin:0.11'
+        classpath 'com.moowork.gradle:gradle-node-plugin:0.12'
+    }
+}
+
+repositories {
+    maven { url "http://repo.maven.apache.org/maven2" }
+    flatDir {
+        dirs 'libs'
+    }
+}
+
+project.ext {
+    dropwizardVersion = '1.0.0'
+}
+
+dependencies {
+    compile "io.dropwizard:dropwizard-core:$dropwizardVersion"
+    compile "io.dropwizard:dropwizard-assets:$dropwizardVersion"
+    compile "io.dropwizard:dropwizard-client:$dropwizardVersion"
+    compile "io.dropwizard:dropwizard-forms:$dropwizardVersion"
+    compile "io.dropwizard:dropwizard-auth:$dropwizardVersion"
+    compile "io.dropwizard:dropwizard-views-mustache:$dropwizardVersion"
+    compile "org.apache.commons:commons-lang3:3.0"
+    compile "com.google.guava:guava:19.0"
+}
+
+run {
+    args 'server', 'development'
+}
+
+task writeVersion << {
+    new File("$buildDir/resources/main/").mkdirs()
+    def file = new File("$buildDir/resources/main/build.yaml")
+    def buildYaml = [version: version]
+    Yaml yaml = new Yaml()
+    file.write(yaml.dump(buildYaml))
+}
+
+compileJava  {
+    dependsOn writeVersion
+}
+
+processResources {
+    dependsOn gulp_build
+}
+
+gulp_build {
+    dependsOn npm_rebuild
+}
+
+npm_rebuild {
+    args = ['node-sass']
+    dependsOn npm_install
+}
+
+node {
+    version = '5.9.0'
+    download = true
+}
+
+jar {
+    zip64 = true
+}
+
+task wrapper(type: Wrapper) {
+    gradleVersion = '2.13'
+}
+
+shadowJar {
+    mergeServiceFiles()
+    exclude 'META-INF/*.DSA'
+    exclude 'META-INF/*.RSA'
+}
+
+task packageApp(type: Tar, dependsOn: shadowJar) {
+    extension = "tar.gz"
+    compression = Compression.GZIP
+
+    into(".") {
+        from("config/upstart")
+        from("build/libs")
+    }
+
+    destinationDir = file('build/dist')
+}
+
+idea {
+    module {
+        excludeDirs += files('.idea', '.gradle', 'gradle', 'build', 'node_modules', 'logs')
+    }
+}
